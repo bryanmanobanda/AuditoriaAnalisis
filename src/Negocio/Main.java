@@ -2,6 +2,7 @@
 package Negocio;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 
 public class Main {
 
@@ -11,6 +12,7 @@ public class Main {
     public static void main(String[] args) throws SQLException {
         InterfazAnalisis interfaz = new InterfazAnalisis();
         interfaz.setVisible(true);
+        ConexionBaseDatos c = new ConexionBaseDatos();
     }
     
 }
