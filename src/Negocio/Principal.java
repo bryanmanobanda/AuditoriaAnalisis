@@ -16,6 +16,7 @@ import javax.swing.JOptionPane;
 
 public class Principal extends Conexion{
     ArrayList<String> tablas = new ArrayList<>();
+    
     Map<String, List<String>> relationships = new HashMap<>();
     FileWriter fw;
   
@@ -31,28 +32,20 @@ public class Principal extends Conexion{
         connection.close();
     }
   
-    public Map buscarRelaciones(String BD) throws SQLException{
+    public ArrayList<String> buscarRelaciones(String BD) throws SQLException{
         connection = getConnection(BD);
-        for (String tabla : tablas) {
-            if(!"sysdiagrams".equals(tabla)){
-                ps = connection.prepareStatement("EXEC sp_fkeys " + tabla);
-                rs = ps.executeQuery();
-                while (rs.next()) {
-                    String tablePK = rs.getString("PKTABLE_NAME");
-                    String tableFK = rs.getString("FKTABLE_NAME");
-                    String clave = rs.getString("FKCOLUMN_NAME");
-                    String pkTable = tableFK + " - " + clave;
-                    List<String> pkTables = relationships.getOrDefault(tablePK, new ArrayList<>());
-                    pkTables.add(pkTable);
-                    relationships.put(tablePK, pkTables);
-                }
-            }
+        ArrayList<String> relaciones = new ArrayList<>();
+        ps = connection.prepareStatement("SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE CONSTRAINT_TYPE ='FOREIGN KEY'");
+        rs = ps.executeQuery();
+        while (rs.next()) {
+            String tablePK = rs.getString("CONSTRAINT_NAME");
+            relaciones.add(tablePK);
         }
         ps.close();
         rs.close();
         connection.close();
-        return relationships; 
- }
+        return relaciones; 
+    }
     
     public Map posiblesRelaciones(String BD) throws SQLException{
         connection = getConnection(BD);
@@ -91,11 +84,11 @@ public class Principal extends Conexion{
         return posibles;
     }
     
-    public void CrearLog(String contenido, String BD){
+    public void CrearLog(String operacion, String contenido, String BD){
         SimpleDateFormat formato = new SimpleDateFormat("HH.mm.ss dd-MM-yyyy", Locale.getDefault());
         Date Ahora = new Date();
         String name = formato.format(Ahora);
-        String archivo = "c:\\"+BD+"logs_"+name+".txt";
+        String archivo = "D:\\"+BD+ operacion+"-logs_"+name+".txt";
         File fichero = new File (archivo);
         try {
             if (fichero.createNewFile()){
@@ -111,4 +104,83 @@ public class Principal extends Conexion{
             ioe.printStackTrace();
         }
     }
- }
+    
+    public String CrearTablaAuditoria(String BD) throws SQLException{
+        connection = getConnection(BD);
+        String tablaAuditoria = "create table tabla_auditoria(\n" +
+                                "	Usuario		varchar(255) not null,\n" +
+                                "	Operacion	varchar(255) not null,\n" +
+                                "	Tabla		varchar(255) null,\n" +
+                                "	fecha_hora	DATETIME null,\n" +
+                                ")";
+        
+        ps = connection.prepareStatement(tablaAuditoria);
+        ps.execute();
+        ps.close();
+        connection.close();
+        return tablaAuditoria;
+    }
+    
+    public String CrearDisparadores(String BD) throws SQLException{
+        connection = getConnection(BD);
+        String item="";
+        ArrayList<String> lista_disparadores_Auditoria = new ArrayList<>();
+        System.out.println(tablas.size());
+        for(int i = 0; i<this.tablas.size();i++){
+            System.out.println(this.tablas.get(i));
+            item = "CREATE TRIGGER auditoria_" +this.tablas.get(i)+"\n"+
+                    "ON "+this.tablas.get(i) +"\n"+
+                    "AFTER INSERT, UPDATE, DELETE\n" +
+                    "AS\n" +
+                    "BEGIN\n" +
+                    "	 DECLARE @usuario VARCHAR(255);\n" +
+                    "	 DECLARE @operacion VARCHAR(255);\n" +
+                    "	 DECLARE @nombre_tabla VARCHAR(255) = '"+this.tablas.get(i)+"';\n"+
+                    "	 DECLARE @fecha_hora DATETIME = CURRENT_TIMESTAMP;\n" +
+                    "	 IF TRIGGER_NESTLEVEL() > 1\n" +
+                    "	 RETURN;\n" +
+                    "	 IF EXISTS (SELECT * FROM inserted)\n" +
+                    "		IF EXISTS (SELECT * FROM deleted)\n" +
+                    "			SET @operacion = 'UPDATE';\n" +
+                    "		ELSE\n" +
+                    "			SET @operacion = 'INSERT';\n" +
+                    "	ELSE\n" +
+                    "		SET @operacion = 'DELETE';\n" +
+                    "\n" +
+                    "	SET @usuario = SYSTEM_USER;\n" +
+                    "\n" +
+                    "	INSERT INTO tabla_auditoria\n" +
+                    "	VALUES (@usuario, @operacion, @nombre_tabla, @fecha_hora);\n" +
+                    "END;\n";
+            lista_disparadores_Auditoria.add(item);
+        }
+        lista_disparadores_Auditoria.remove(lista_disparadores_Auditoria.size()-1);
+        String listaTriggers="";
+        for(int i = 0; i<lista_disparadores_Auditoria.size();i++){
+            System.out.print(lista_disparadores_Auditoria.get(i));
+        ps = connection.prepareStatement(lista_disparadores_Auditoria.get(i));
+        ps.execute();
+        ps.close();
+        listaTriggers += lista_disparadores_Auditoria.get(i);
+        }
+        connection.close();
+        return listaTriggers;
+    }
+    
+    public Map obtenerTrigger(String BD) throws SQLException{
+        connection = getConnection(BD);
+        ps = connection.prepareStatement("SELECT name AS TriggerName, OBJECT_NAME(parent_id) AS TableName\n" +
+                                        "FROM sys.triggers\n" +
+                                        "ORDER BY TableName, TriggerName;");
+        rs=ps.executeQuery();
+        Map<String, List<String>> tables_columns = new HashMap<>();
+        while (rs.next()) {
+            String table = rs.getString("TriggerName");
+            String column = rs.getString("TableName");
+            List<String> columns = tables_columns.getOrDefault(table, new ArrayList<>());
+            columns.add(column);
+            tables_columns.put(table, columns);
+        }
+        return tables_columns;
+    }
+}
