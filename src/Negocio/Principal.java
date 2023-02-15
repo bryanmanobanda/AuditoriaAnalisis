@@ -125,9 +125,7 @@ public class Principal extends Conexion{
         connection = getConnection(BD);
         String item="";
         ArrayList<String> lista_disparadores_Auditoria = new ArrayList<>();
-        System.out.println(tablas.size());
         for(int i = 0; i<this.tablas.size();i++){
-            System.out.println(this.tablas.get(i));
             item = "CREATE TRIGGER auditoria_" +this.tablas.get(i)+"\n"+
                     "ON "+this.tablas.get(i) +"\n"+
                     "AFTER INSERT, UPDATE, DELETE\n" +
@@ -157,7 +155,6 @@ public class Principal extends Conexion{
         lista_disparadores_Auditoria.remove(lista_disparadores_Auditoria.size()-1);
         String listaTriggers="";
         for(int i = 0; i<lista_disparadores_Auditoria.size();i++){
-            System.out.print(lista_disparadores_Auditoria.get(i));
         ps = connection.prepareStatement(lista_disparadores_Auditoria.get(i));
         ps.execute();
         ps.close();
@@ -181,6 +178,26 @@ public class Principal extends Conexion{
             columns.add(column);
             tables_columns.put(table, columns);
         }
+        
         return tables_columns;
+    }
+    
+    public ArrayList<String> getAnormalies(String BD) throws SQLException{
+        ArrayList<String> tabla = new ArrayList<>();
+        connection = getConnection(BD);
+        String anomalias = "DBCC CHECKCONSTRAINTS WITH ALL_CONSTRAINTS";
+        ps = connection.prepareStatement(anomalias);
+        rs=ps.executeQuery();
+        while (rs.next()) {
+            String table = rs.getString("Table");
+            String constraint = rs.getString("Constraint");
+            String where = rs.getString("Where");
+            String anomalia = table + ": "+ constraint+ " - " + where;
+            tabla.add(anomalia);
+        }
+        ps.close();
+        rs.close();
+        connection.close();
+        return tabla;
     }
 }
