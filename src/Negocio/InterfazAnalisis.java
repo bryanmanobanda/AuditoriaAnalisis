@@ -2,6 +2,7 @@ package Negocio;
 
 import java.awt.Color;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,8 +18,13 @@ public class InterfazAnalisis extends javax.swing.JFrame {
     Principal principal;
     String relacionExiste = "<html>";
     String relacionPosible = "<html>";
-    Map<String, List<String>> relationships = new HashMap<>();
+    ArrayList<String> relationships = new ArrayList<>();
+    ArrayList<String> anomalias = new ArrayList<>();
     Map<String, List<String>> posibles = new HashMap<>();
+    Map<String, List<String>> trigers = new HashMap<>();
+    String triggers = "<html>";
+    String tigre = "";
+    String anomalia="<html>";
     public InterfazAnalisis() {
         initComponents();
         principal = new Principal();
@@ -52,6 +58,23 @@ public class InterfazAnalisis extends javax.swing.JFrame {
         for (Map.Entry<String, List<String>> entry : lectura.entrySet()) {
             cadena += "\r\n"+ entry.getKey() + " -> " + entry.getValue();
         }
+        return cadena;
+    }
+    
+    public String txtPlainArray(ArrayList<String> lectura){
+        String cadena = "";
+        for(String hoja:lectura){
+            cadena += "\r\n"+ hoja;
+        }
+        return cadena;
+    }
+    
+    public String leerArray(ArrayList<String> lectura){
+        String cadena = "";
+        for(String hoja:lectura){
+            cadena += "<hr>" + hoja;
+        }
+        
         return cadena;
     }
 
@@ -161,13 +184,23 @@ public class InterfazAnalisis extends javax.swing.JFrame {
             try {
                 principal.obtenerTablas(this.jTFBD.getText());
                 relationships = principal.buscarRelaciones(this.jTFBD.getText());
-                relacionExiste += "<hr> <b>Tabla Principal: [Tabla Relacionada - atributo]</b>";
-                relacionExiste += leerMap(relationships) + "</html>";
+                relacionExiste += leerArray(relationships) + "</html>";
                 posibles = principal.posiblesRelaciones(this.jTFBD.getText());
                 relacionPosible += "<hr> <b>Tabla Principal: [Tabla Relacionada - atributo]</b>";
                 relacionPosible += leerMap(posibles) + "</html>";
                 this.jTPRelacionExistente.setText(relacionExiste);
                 this.jTPPosibleRelacion.setText(relacionPosible);
+          
+       //        tigre += principal.CrearTablaAuditoria(this.jTFBD.getText());
+         //      tigre += principal.CrearDisparadores(this.jTFBD.getText());
+                trigers = principal.obtenerTrigger(this.jTFBD.getText());
+                triggers += leerMap(trigers) + "</html>";
+                this.jTPTrigger.setText(triggers);
+                anomalias = principal.getAnormalies(this.jTFBD.getText());
+                anomalia += leerArray(anomalias) + "</html>";
+                this.jTPAnomalia.setText(anomalia);
+                
+                
             } catch (SQLException ex) {
                 Logger.getLogger(InterfazAnalisis.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -176,9 +209,16 @@ public class InterfazAnalisis extends javax.swing.JFrame {
 
     private void jBLogsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jBLogsActionPerformed
         String txtplano = "";
-        txtplano += "Relaciones existentes \r\n" + txtPlain(relationships) +"\r\n";
-        txtplano += "\r\n\r\nRelaciones posibles \r\n" + txtPlain(posibles)+"\r\n";
-        principal.CrearLog(txtplano,this.jTFBD.getText());
+        txtplano = "Relaciones existentes \r\n" + txtPlainArray(relationships) +"\r\n";
+        principal.CrearLog("RelacionesExistentes",txtplano,this.jTFBD.getText());
+        txtplano = "\r\n\r\nRelaciones posibles \r\n" + txtPlain(posibles)+"\r\n";
+        principal.CrearLog("RelacionesPosibles",txtplano,this.jTFBD.getText());
+        txtplano = "\r\n\r\nTriggers \r\n" + txtPlain(trigers)+"\r\n";
+        principal.CrearLog("Trigger",txtplano,this.jTFBD.getText());
+        txtplano = "\r\n\r\nSCRIPT TRIGGERS \r\n" + tigre+"\r\n";
+        principal.CrearLog("TriggerScript",txtplano,this.jTFBD.getText());
+        txtplano = "\r\n\r\nANOMALIAS DE DATOS \r\n" + txtPlainArray(anomalias)+"\r\n";
+        principal.CrearLog("Anomalias_Datos",txtplano,this.jTFBD.getText());
     }//GEN-LAST:event_jBLogsActionPerformed
 
     /**
